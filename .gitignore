@@ -1,0 +1,7 @@
+pxeserver/build/
+pxeserver/hiveramfs/amd-opencl*
+pxeserver/hiveramfs/boot
+pxeserver/hiveramfs/nvidia
+pxeserver/hiveramfs/ubuntu*
+pxeserver/kernel
+pxeserver/*.log
