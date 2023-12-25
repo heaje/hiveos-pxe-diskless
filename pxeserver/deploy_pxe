@@ -589,6 +589,7 @@ install_pkg() {
 #	chroot $DIR update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 > /dev/null 2>&1
 	chroot $DIR apt -y install hive  > /dev/null 2>&1
 	chroot $DIR ln -sf /hive/etc/pci.ids /usr/share/misc/pci.ids
+	chroot $DIR systemctl disable --now shellinabox
 	echo_ok
 }
 
