@@ -720,6 +720,7 @@ install_pkg() {
 	chroot $DIR apt -y install hive  &>>$LOG_FILE
 	chroot $DIR ln -sf /hive/etc/pci.ids /usr/share/misc/pci.ids
 	chroot $DIR /hive/bin/repover-touch
+	chroot $DIR systemctl disable --now shellinabox
 	#chroot $DIR apt -y install hive-amdgpu-5.4 hive-rocm-5.4 &>>$LOG_FILE
 	echo_ok
 }
