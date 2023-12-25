@@ -576,6 +576,10 @@ upgrade_fs() {
     if [[ $? -ne 0 ]]; then
 	echo_fail
     fi
+    chroot $DIR /bin/bash -c "export PATH=$PATH:/hive/bin:/hive/sbin && /hive/bin/selfupgrade" > /dev/null 2>&1
+    if [[ $? -ne 0 ]]; then
+        echo_fail
+    fi
     echo_ok
     echo2 "Install additional packages..."
     chroot $DIR apt -y install mc busybox-static libnuma1 psmisc x11-xkb-utils gettext-base \
