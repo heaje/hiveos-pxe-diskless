@@ -607,7 +607,7 @@ configure_fs() {
     rm ${DIR}/etc/systemd/system/getty.target.wants/getty@tty1.service
     chroot ${DIR} useradd -m -p 1 -s /bin/bash user
 
-    echo root:hunter2 | sudo chpasswd -c SHA256 -R $DIR
+    echo root:$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13; echo -n) | sudo chpasswd -c SHA256 -R $DIR
     echo user:1 | sudo chpasswd -c SHA256 -R $DIR
 
     chroot $DIR adduser user sudo &>>$LOG_FILE
