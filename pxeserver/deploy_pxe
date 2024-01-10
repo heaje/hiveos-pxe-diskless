@@ -685,7 +685,7 @@ upgrade_fs() {
 install_add(){
     echo2 "Install additional packages..."
     chroot $DIR apt -y install mc busybox-static libnuma1 psmisc x11-xkb-utils gettext-base \
-				pciutils dmidecode locales-all &>>$LOG_FILE
+				pciutils dmidecode locales-all usbutils lm-sensors &>>$LOG_FILE
     [[ $? -ne 0 ]] && echo_fail || echo_ok
     echo2 "Compile locales..."
     chroot $DIR apt -y install locales &>>$LOG_FILE
