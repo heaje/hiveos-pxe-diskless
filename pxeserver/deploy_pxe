@@ -637,7 +637,7 @@ deploy_fs() {
 	echo ""    
 	echo2 "Saving to $filepath ..."
 	echo ""
-	tar -C $DIR --exclude='boot/*' --exclude='usr/src/*' --exclude='dev/*' -cpf - . | pv -s ${dir_size}M | pixz -e > $filepath
+	tar -C $DIR --exclude='boot/*' --exclude='usr/src/*' --exclude='dev/*' --exclude='sys/*' --exclude='run/*' --exclude='proc/*' -cpf - . | pv -s ${dir_size}M | pixz -e > $filepath
 	if [[ $? -eq 0 ]]; then
 	    echo2 "Create symlink ..."
 	    rm -rf hiveramfs/$dist.tar.xz && ln -s ../$filepath hiveramfs/$dist.tar.xz
@@ -703,8 +703,8 @@ case $1 in
 	create_fs
 	mount_need
 	add_apt
-	upgrade_fs
 	install_pkg
+	upgrade_fs
 	install_kernel
 	create_initrd
 	clean_apt
