@@ -808,6 +808,7 @@ case $1 in
     --upgrade)
 	mount_need
 	upgrade_fs
+	upgrade_hive
 	clean_apt
 	umount_need
 	deploy_fs
