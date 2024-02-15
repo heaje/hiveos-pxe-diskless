@@ -1,0 +1,21 @@
+ARG ubuntu_version
+
+FROM ubuntu:${ubuntu_version}
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dev packages
+RUN apt update &&\
+    apt -y install curl isc-dhcp-client initramfs-tools-core pciutils pv wget xz-utils &&\
+    apt clean
+
+# Install kernel packages
+ARG kernel_url=https://download.hiveos.farm/diskless/kernel/
+RUN mkdir -p /kernel &&\
+    wget -nH --no-parent -r --cut-dir=1 ${kernel_url}
+RUN dpkg -i /kernel/*.deb
+RUN ln -s /boot/vmlinuz-* /boot/vmlinuz
+
+# Build initramfs
+COPY configs/initramfs-tools/ /etc/initramfs-tools/.
+RUN echo "RESUME=none" > /etc/initramfs-tools/conf.d/resume &&\
+    mkinitramfs -c xz -o /boot/initrd-ram.img $(dpkg -I /kernel/linux-image-*.deb | grep Package: |sed -r 's/.*linux-image-//')

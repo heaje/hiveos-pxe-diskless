@@ -560,10 +560,27 @@ case $dist in
 	;;
 esac
 
-create_fstab() {
-tee  ${DIR}/etc/fstab > /dev/null <<EOT
-EOT
+build_fs(){
+    local docker_build="docker compose --progress=plain build"
+    echo2 "Building Kernel container..."
+    ${docker_build} --pull hiveos-kernel &>>$LOG_FILE
+    [[ $? -eq 0 ]] && echo_ok || echo_fail
 
+    echo2 "Building Filesystem container..."
+    ${docker_build} hiveos &>>$LOG_FILE
+    [[ $? -eq 0 ]] && echo_ok || echo_fail
+
+    echo2 "Extracting Kernel and initramfs..."
+    mkdir -p "build/${dist}/boot"
+    local cont_temp_id=$(docker create --rm hiveos-kernel)
+    docker cp -L ${cont_temp_id}:/boot/vmlinuz build/${dist}/boot/vmlinuz &>>$LOG_FILE
+    docker cp ${cont_temp_id}:/boot/initrd-ram.img build/${dist}/boot/initrd-ram.img &>>$LOG_FILE
+    docker rm -f ${cont_temp_id} 1> /dev/null
+    [[ $? -eq 0 ]] && echo_ok || echo_fail
+
+    [[ ! -d hiveramfs/boot ]] && mkdir -p hiveramfs/boot
+    rm -f "hiveramfs/boot/${dist}" && ln -sf "${mydir}/build/$dist/boot/vmlinuz" "hiveramfs/boot/${dist}"
+    rm -f "hiveramfs/boot/${dist}.img" && ln -sf "${mydir}/build/${dist}/boot/initrd-ram.img" "hiveramfs/boot/${dist}.img"
 }
 
 create_fs() {
@@ -759,17 +776,16 @@ clean_apt() {
 }
 
 deploy_fs() {
-	local dir_size=`du -hsm $DIR | awk '{print $1}' | tr -d '\r\n'`
 	local filepath=build/$dist/$dist.tar.xz
-	echo2 "Directory size: ${dir_size}M" && echo_ok
 
 	echo2 "Saving to $filepath ..."
-	tar -C $DIR --exclude='boot/*' --exclude='usr/src/*' --exclude='dev/*' -cpf - . | pixz -9 -e > $filepath
+	local cont_temp_id=$(docker create --rm hiveos)
+	docker export "${cont_temp_id}" | pixz -9 -e > $filepath
 	[[ $? -ne 0 ]] && echo_fail || echo_ok
-	    echo2 "Create symlink ..."
-	    rm -rf hiveramfs/$dist.tar.xz && ln -s ../$filepath hiveramfs/$dist.tar.xz
+	docker rm -f ${cont_temp_id} 1> /dev/null &>>$LOG_FILE
+	echo2 "Create symlink ..."
+	rm -f hiveramfs/$dist.tar.xz && ln -s ../$filepath hiveramfs/$dist.tar.xz
 	[[ $? -ne 0 ]] && echo_fail || echo_ok
-	
 }
 
 echo ""
@@ -797,52 +813,16 @@ echo ""
 #fi
 
 case $1 in
-    --initrd)
-	create_initrd
-	exit $?
-	;;
-    --umount)
-	umount_need
-	exit $?
-	;;
-    --upgrade)
-	mount_need
-	upgrade_fs
-	upgrade_hive
-	clean_apt
-	umount_need
-	deploy_fs
-	exit $?
-	;;
-    --selfupgrade)
-	mount_need
-	upgrade_hive
-	clean_apt
-	umount_need
-	deploy_fs
-	exit $?
-	;;
     --chroot)
-	mount_need
-	chroot $DIR
-	umount_need
+	docker run -it --rm hiveos /bin/bash
 	exit $?
 	;; 
     --build)
-	create_fs
-	mount_need
-	add_apt
-	upgrade_fs 1
-	install_add
-	configure_fs
-	install_pkg
-	install_kernel
-	create_initrd
-	clean_apt
-	umount_need
+	build_fs
 	deploy_fs
 	;;
     --remove)
+	docker rmi hiveos hiveos-kernel
 	remove_fs
 	;;
     *)

@@ -1,0 +1,25 @@
+
+version: '3.4'
+
+x-common-args: &default_args
+  hive_repo: http://hiveos.local/
+  ubuntu_version: 20.04
+
+services:
+  hiveos:
+    image: hiveos
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args: 
+        <<: *default_args
+        extra_packages: lm-sensors vim
+        user_password: mining1234
+        root_password: rootmining1234
+
+  hiveos-kernel:
+    image: hiveos-kernel
+    build:
+      context: .
+      dockerfile: Dockerfile-kernel
+      args: *default_args
