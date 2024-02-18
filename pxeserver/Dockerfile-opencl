@@ -1,0 +1,16 @@
+ARG ubuntu_version
+
+FROM ubuntu:${ubuntu_version}
+
+# Install packages
+RUN apt update &&\
+    apt -y install pixz wget &&\
+    apt clean
+
+# Prep driver
+RUN mkdir -p /opencl/{pkg,opencl-${opencl_version}}
+WORKDIR /opencl
+ARG opencl_version=5.4_5.4.6
+RUN wget -O - https://download.hiveos.farm/repo/binary/amd-ocl/hive-amdgpu-${opencl_version}_amd64.deb | dpkg -x - opencl-${opencl_version} &&\
+    wget -O - https://download.hiveos.farm/repo/binary/amd-ocl/hive-rocm-${opencl_version}_amd64.deb | dpkg -x - opencl-${opencl_version}
+RUN tar -C opencl-${opencl_version} -cpf - . | pixz -9 -e > amd-opencl-${opencl_version}.tar.xz

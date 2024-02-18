@@ -456,19 +456,19 @@ echo "Not implemented yet."
 }
 build_opencl() {
 	[[ "$#" -eq 0 ]] && local ver=$DEFAULT_OCL_VER || local ver=$1
-	[[ ! -d $mydir/build/opencl/_$ver ]] && mkdir -p $mydir/build/opencl/_$ver
-	echo2 "Download AMDGPU/ROCm ($ver) libs..."
-	curl -s $HIVE_REPO_URL/amd-ocl/hive-rocm-5.4_5.4.6_amd64.deb |dpkg -x - $mydir/build/opencl/_$ver
-	curl -s $HIVE_REPO_URL/amd-ocl/hive-amdgpu-5.4_5.4.6_amd64.deb |dpkg -x - $mydir/build/opencl/_$ver
-	[[ $? -ne 0 ]] && echo_fail || echo_ok
-	echo2 "Create archive amd-opencl-$ver.tar.xz..."
-	tar -C $mydir/build/opencl/_$ver -cpf - . | pixz -9 -e > $mydir/build/opencl/amd-opencl-$ver.tar.xz
-	[[ $? -ne 0 ]] && echo_fail || echo_ok
-	echo2 "Remove tmp folder..."
-	rm -rf $mydir/build/opencl/_$ver
-	[[ $? -ne 0 ]] && echo_fail || echo_ok
+    echo2 "Building amd-opencl-${ver}.tar.xz..."
+    docker compose build --progress=plain --build-arg opencl_version=${ver} hiveos-opencl &>>$LOG_FILE
+    [[ $? -ne 0 ]] && echo_fail || echo_ok
+
+    echo2 "Copying archive amd-opencl-${ver}.tar.xz..."
+    [[ ! -d build/opencl ]] && mkdir -p build/opencl
+    local cont_temp_id=$(docker create --rm hiveos-opencl)
+    docker cp ${cont_temp_id}:/opencl/amd-opencl-${ver}.tar.xz build/opencl/amd-opencl-$ver.tar.xz &>>$LOG_FILE
+    [[ $? -ne 0 ]] && echo_fail || echo_ok
+    docker rm -f ${cont_temp_id} 1> /dev/null &>>$LOG_FILE
+
 	echo2 "Create symlink..."
-	ln -sf ../build/opencl/amd-opencl-$ver.tar.xz $mydir/hiveramfs/
+	ln -sf build/opencl/amd-opencl-${ver}.tar.xz hiveramfs/
 	[[ $? -ne 0 ]] && echo_fail || echo_ok
 }
 

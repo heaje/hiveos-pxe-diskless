@@ -29,7 +29,7 @@ TFTP_ROOT=$mydir"/tftp"
 BOOT_CONF=$TFTP_ROOT"/bios/menu.cfg"
 HTTP_ROOT="$mydir/hiveramfs"
 SYS_CONF=$mydir"/configs"
-OCL_VER=5.4
+OCL_VER=5.4_5.4.6
 NV_VER=535.129.03
 
 #install package
