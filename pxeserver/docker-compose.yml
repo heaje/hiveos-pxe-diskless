@@ -2,7 +2,7 @@ version: '3.4'
 
 x-common-args: &default_args
   hive_repo: http://hiveos.local/
-  ubuntu_version: 20.04
+  kernel_pkg_path: kernel/hiveos-6.1
 
 services:
   hiveos:
@@ -21,6 +21,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-kernel
+      args: *default_args
+
+  hiveos-nvidia:
+    image: hiveos-nvidia
+    build:
+      context: .
+      dockerfile: Dockerfile-nvidia
       args: *default_args
 
   hiveos-opencl:

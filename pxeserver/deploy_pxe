@@ -28,6 +28,7 @@ mydir=`pwd`
 
 dist=$1
 command=$2
+docker_build_cmd="docker compose --progress=plain build"
 
 LOG_FILE=`basename $0`.log
 DIR=`pwd`/build/$dist/_fs
@@ -101,35 +102,6 @@ function get_cuda_version() { # @driver_version, returns cuda_version
     return 1
 }
 
-
-function get_freespace() { # @silent
-    local space=`df -k --output=avail $DRVPATH | tail -n 1 2>&1`
-    [[ $space -ge $(( $MINFREEMB * 1024 )) ]] && return 0
-    [[ -z "$1" ]] &&
-        echo -e "" &&
-        echo -e "${YELLOW}> Free space is less than ${WHITE}${MINFREEMB} MB${YELLOW} ($(( $space/1024 )) MB)${NOCOLOR}"
-    return 1
-}
-
-function free_space() { # @url for package to keep
-    get_freespace && return 0
-    # step 1. try disk-expand
-    disk-expand -s
-    get_freespace 1 && return 0
-    # step 2. remove some packages
-    echo -e "${YELLOW}> Removing old driver packages${NOCOLOR}"
-    remove_packages "$url"
-    get_freespace 1 && return 0
-    # step 3. clean ${DRVPATH} completely
-    if [[ ! -z ${DRVPATH} && ${#DRVPATH} -gt 2 && -n "$(ls -A ${DRVPATH})" ]]; then
-        echo -e ""
-        echo -e "${YELLOW}> Removing everything from ${DRVPATH}${NOCOLOR}"
-        rm -v -r --one-file-system ${DRVPATH}*
-    fi
-    get_freespace
-    return $?
-}
-
 function list_packages() {
     get_versions
     if [[ $? -eq 0 ]]; then
@@ -171,17 +143,6 @@ function list_packages() {
         fi
 
     get_stable
-
-    local files
-    readarray -t files < <(realpath ${DRVPATH}NVIDIA-Linux* | grep -oP "$DRVREGEXP" | sort -V)
-    [[ ${#files[@]} -eq 0 ]] && return 0
-    echo -en "${CYAN}> Downloaded packages -"
-    for drv in "${files[@]}"
-        do
-            local basename=`basename "$drv"`
-            echo -en " $basename "
-        done
-    echo -e "${NOCOLOR}"
 }
 
 function check_package() { # @filename
@@ -329,108 +290,22 @@ function get_stable() { # returns $stable_version
 
 function build_driver() { # @url or @file, @force_install
     # it must exist
-#    [[ ! -d ${DRVPATH} ]] && mkdir ${DRVPATH}
-
     get_url "$1" || return $?
 
     # check compatibility
     local ver=`echo "$url" | grep -oP "${DRVREGEXP}"`
-    # check avaliable space and try to get some
-    free_space "$url"
-    [[ $? -ne 0 ]] && echo -e "${RED}> Not enough free space to continue${NOCOLOR}" && return 1
     
-    get_package "$url" || return $?
-
-    #cd $DRVPATH
-    export TMPDIR=$DRVPATH
-    local basename=`basename $package`
-    local base_pkg=${DRVPATH}$basename
-    local build_dir=${DRVPATH}nvidia-$ver
-    [[ ! -d ${build_dir} ]] && mkdir -p ${build_dir}
-    [[ ! -d hiveramfs/nvidia ]] && mkdir -p hiveramfs/nvidia
-    # this check is redundant
-    [[ ! -f "$base_pkg" ]] && echo -ne "${RED}> $basename not found in ${DRVPATH}${NOCOLOR}" && return 1
-    #check_package "$basename"
-
-    #Extract Driver
-    echo2 "Extract $basename..."
-    [[  -d ${DRVPATH}${ver} ]] && rm -rf ${DRVPATH}${ver}
-    cd ${DRVPATH} && sh $basename --extract-only --target $ver > /dev/null 2>&1
-    [[ $? -ne 0 ]] && echo $? && echo -ne "${RED}> Failed to extract driver $basename${NOCOLOR}" && echo_fail
-    echo_ok
-
-    #Build from source
-    echo2 "Build NVIDIA-$ver (`nproc` CPU cores)..."
-    mkdir -p $mydir/$build_dir/usr/lib/modules/$kern_ver/kernel/drivers/video
-    cd ${ver}/kernel/ && make -j `nproc` SYSSRC=$mydir/build/_kernel/$kern_ver/usr/src/linux-headers-$kern_ver/ M=$PWD IGNORE_CC_MISMATCH='1' > $mydir/${DRVPATH}make-$ver.log 2>&1
-    [[ $? -ne 0 ]] && echo -e "${RED}> Failed to build driver.${NOCOLOR}" && echo_fail
-    echo_ok
-    echo2 "Copy driver files..."
-    find . -type f -name "*.ko" -exec cp -r "{}" $mydir/$build_dir/usr/lib/modules/$kern_ver/kernel/drivers/video \;
-    [[ $? -ne 0 ]] && echo -e "${RED}> Failed to copy driver files.${NOCOLOR}" && echo_fail
-    echo_ok
-    #Copy libs 
-    echo2 "Copy lib files..."
-
-    mkdir -p $mydir/$build_dir/usr/local/lib/nvidia
-    mkdir -p $mydir/$build_dir/usr/local/lib/xorg/modules/drivers
-    mkdir -p $mydir/$build_dir/usr/local/bin
-    mkdir -p $mydir/$build_dir/etc/{ld.so.conf.d,modprobe.d}
-    mkdir -p $mydir/$build_dir/usr/lib/firmware/nvidia/$ver
-    mkdir -p $mydir/$build_dir/etc/OpenCL/vendors
-
-    cd $mydir/$build_dir/usr/local/lib/nvidia
-    for file in libcuda.so libnvidia-opencl.so libnvidia-ml.so libnvidia-allocator.so libnvidia-cfg.so libnvidia-fbc.so libnvidia-gtk2.so libnvidia-gtk3.so libnvidia-ptxjitcompiler.so libnvidia-nvvm.so ; do
-	cp -r $mydir/${DRVPATH}${ver}/$file.$ver .
-	ln -s $file.$ver $file
-	ln -s $file.$ver $file.1
-	[[ $? -ne 0 ]] && echo -e "${RED}> Failed to copy lib files.${NOCOLOR}" && echo_fail
-    done
-
-    for file in nvidia-persistenced nvidia-settings nvidia-smi ; do
-	cp -r $mydir/${DRVPATH}${ver}/$file $mydir/$build_dir/usr/local/bin
-    done
-    echo "options nvidia_drm modeset=1" > $mydir/$build_dir/etc/modprobe.d/nvidia.conf
-    echo "/usr/local/lib/nvidia" > $mydir/$build_dir/etc/ld.so.conf.d/nvidia.conf
-    cp -r $mydir/${DRVPATH}${ver}/nvidia.icd $mydir/$build_dir/etc/OpenCL/vendors
-    cp -r $mydir/${DRVPATH}${ver}/firmware/*.bin $mydir/$build_dir/usr/lib/firmware/nvidia/$ver
-    cp -r $mydir/${DRVPATH}${ver}/nvidia_drv.so $mydir/$build_dir/usr/local/lib/xorg/modules/drivers 
-    echo_ok
-    cd $mydir
-    
-    #Create archive 
-    echo2 "Create archive..."
-    tar -C $mydir/$build_dir -cpf - . | pixz -9 -e > $mydir/$build_dir.tar.xz
+    # Build NVIDIA Driver
+    echo2 "Building NVIDIA Driver version ${ver}..."
+    ${docker_build_cmd} --build-arg "nvidia_url=${url}" --build-arg "nvidia_version=${ver}" hiveos-nvidia
     [[ $? -ne 0 ]] && echo_fail || echo_ok
 
-    #Clear folders
-    rm -rf $mydir/$build_dir
-    rm -rf $mydir/${DRVPATH}$basename
-    rm -rf $mydir/${DRVPATH}$ver
-    ln -sf $mydir/$build_dir.tar.xz hiveramfs/nvidia/
-    echo2 "${GREEN}Driver build successful${NOCOLOR}"
-    echo ""
-}
-
-
-
-mount_need() {
-    echo2 "Mount needed folders (dev|proc|run|sys)..."
-    mount --bind /proc ${DIR}/proc
-    mount --bind /sys  ${DIR}/sys
-    mount --bind /dev  ${DIR}/dev
-    mount --bind /run  ${DIR}/run
-    echo_ok
-}
-
-umount_need() {
-    echo2 "Umount needed folders (dev|proc|run|sys)..."
-    umount ${DIR}/proc
-    umount ${DIR}/sys
-    umount ${DIR}/run
-    umount ${DIR}/dev
-    echo_ok
-
+    mkdir -p build/nvidia
+    echo2 "Copying NVIDIA Driver tarball..."
+    local cont_temp_id=$(docker create --rm hiveos-nvidia)
+    docker cp -L ${cont_temp_id}:/nvidia/nvidia-${ver}.tar.xz build/nvidia/ &>>$LOG_FILE
+    [[ $? -ne 0 ]] && echo_fail || echo_ok
+    docker rm -f ${cont_temp_id} 1> /dev/null
 }
 
 create_initrd() {
@@ -452,12 +327,13 @@ create_initrd() {
 }
 
 list_opencl() {
-echo "Not implemented yet."
+    echo "Not implemented yet."
 }
+
 build_opencl() {
-	[[ "$#" -eq 0 ]] && local ver=$DEFAULT_OCL_VER || local ver=$1
+    [[ "$#" -eq 0 ]] && local ver=$DEFAULT_OCL_VER || local ver=$1
     echo2 "Building amd-opencl-${ver}.tar.xz..."
-    docker compose build --progress=plain --build-arg opencl_version=${ver} hiveos-opencl &>>$LOG_FILE
+    ${docker_build_cmd} --build-arg opencl_version=${ver} hiveos-opencl &>>$LOG_FILE
     [[ $? -ne 0 ]] && echo_fail || echo_ok
 
     echo2 "Copying archive amd-opencl-${ver}.tar.xz..."
@@ -473,8 +349,9 @@ build_opencl() {
 }
 
 remove_opencl() {
-echo "Not implemented yet."
+    echo "Not implemented yet."
 }
+
 case $dist in
     ubuntu18)
 	suite=bionic
@@ -521,7 +398,6 @@ case $dist in
 		exit 0
 		;;
 	--build)
-		extract_kernel
 		shift
 		build_driver "$1"
 		exit $?
@@ -561,13 +437,18 @@ case $dist in
 esac
 
 build_fs(){
-    local docker_build="docker compose --progress=plain build"
-    echo2 "Building Kernel container..."
-    ${docker_build} --pull hiveos-kernel &>>$LOG_FILE
+    echo2 "Building Filesystem container..."
+    ${docker_build_cmd} hiveos &>>$LOG_FILE
     [[ $? -eq 0 ]] && echo_ok || echo_fail
 
-    echo2 "Building Filesystem container..."
-    ${docker_build} hiveos &>>$LOG_FILE
+    [[ ! -d hiveramfs/boot ]] && mkdir -p hiveramfs/boot
+    rm -f "hiveramfs/boot/${dist}" && ln -sf "${mydir}/build/$dist/boot/vmlinuz" "hiveramfs/boot/${dist}"
+    rm -f "hiveramfs/boot/${dist}.img" && ln -sf "${mydir}/build/${dist}/boot/initrd-ram.img" "hiveramfs/boot/${dist}.img"
+}
+
+build_kernel(){
+    echo2 "Building Kernel container..."
+    ${docker_build_cmd} --pull hiveos-kernel &>>$LOG_FILE
     [[ $? -eq 0 ]] && echo_ok || echo_fail
 
     echo2 "Extracting Kernel and initramfs..."
@@ -577,10 +458,6 @@ build_fs(){
     docker cp ${cont_temp_id}:/boot/initrd-ram.img build/${dist}/boot/initrd-ram.img &>>$LOG_FILE
     docker rm -f ${cont_temp_id} 1> /dev/null
     [[ $? -eq 0 ]] && echo_ok || echo_fail
-
-    [[ ! -d hiveramfs/boot ]] && mkdir -p hiveramfs/boot
-    rm -f "hiveramfs/boot/${dist}" && ln -sf "${mydir}/build/$dist/boot/vmlinuz" "hiveramfs/boot/${dist}"
-    rm -f "hiveramfs/boot/${dist}.img" && ln -sf "${mydir}/build/${dist}/boot/initrd-ram.img" "hiveramfs/boot/${dist}.img"
 }
 
 install_kernel(){
@@ -628,9 +505,13 @@ case $1 in
 	exit $?
 	;; 
     --build)
+    build_kernel
 	build_fs
 	deploy_fs
 	;;
+    --build-kernel)
+    build_kernel
+    ;;
     --remove)
 	docker rmi hiveos hiveos-kernel
 	remove_fs

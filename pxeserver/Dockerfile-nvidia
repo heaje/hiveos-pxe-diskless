@@ -1,0 +1,25 @@
+FROM hiveos-kernel
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dev packages
+RUN apt update &&\
+    apt -y install build-essential linux-firmware libelf-dev pixz wget &&\
+    apt clean
+
+# Prep driver
+RUN mkdir -p /nvidia
+WORKDIR /nvidia
+ARG nvidia_version
+ARG nvidia_url
+# COPY build/nvidia/*-${nvidia_version}*.run .
+
+RUN wget ${nvidia_url} &&\
+    bash *.run --extract-only --target nvidia-${nvidia_version}/
+
+# Build driver
+WORKDIR /nvidia/nvidia-${nvidia_version}/kernel
+RUN make -j $(nproc) SYSSRC=$(find /usr/src/linux-headers-* -maxdepth 0 -type d) M=$(pwd) IGNORE_CC_MISMATCH="1"
+
+# Package driver
+COPY --chmod=750 container/nvidia/*.sh /nvidia
+RUN /nvidia/binary_copy.sh "/nvidia" "${nvidia_version}"
