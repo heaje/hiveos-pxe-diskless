@@ -1,0 +1,15 @@
+FROM ubuntu:20.04
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN sed -i -r -e 's/^#[[:space:]]*deb-src/deb-src/g' /etc/apt/sources.list
+RUN sed -i -r -e 's/archive.ubuntu.com/us.archive.ubuntu.com/g' /etc/apt/sources.list
+RUN apt update &&\
+    apt -y install curl git pixz libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf llvm &&\
+    apt -y build-dep linux &&\
+    apt clean
+
+ARG kernel_version
+RUN curl -sq -o - https://cdn.kernel.org/pub/linux/kernel/v$(printf %.1s "${kernel_version}").x/linux-${kernel_version}.tar.xz | tar -xJf -
+COPY config-6.1.0-hiveos /linux-${kernel_version}/.config
+WORKDIR /linux-${kernel_version}
+RUN make -j$(nproc) olddefconfig bindeb-pkg KERNELRELEASE=$(echo ${kernel_version} | awk -F. '{print $1 "." $2}').0-hiveos KDEB_PKGVERSION=${kernel_version}-1.hiveos.$(date "+%Y%m%d")

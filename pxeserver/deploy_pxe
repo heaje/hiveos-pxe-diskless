@@ -297,7 +297,7 @@ function build_driver() { # @url or @file, @force_install
     
     # Build NVIDIA Driver
     echo2 "Building NVIDIA Driver version ${ver}..."
-    ${docker_build_cmd} --build-arg "nvidia_url=${url}" --build-arg "nvidia_version=${ver}" hiveos-nvidia
+    ${docker_build_cmd} --build-arg "nvidia_url=${url}" --build-arg "nvidia_version=${ver}" hiveos-nvidia &>>$LOG_FILE
     [[ $? -ne 0 ]] && echo_fail || echo_ok
 
     mkdir -p build/nvidia

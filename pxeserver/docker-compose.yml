@@ -38,3 +38,12 @@ services:
       args:
         <<: *default_args
         opencl_version: 5.4_5.4.6
+
+  kernel-build:
+    image: kernel-build
+    build:
+      context: .
+      dockerfile: Dockerfile-kernelbuild
+      args:
+        <<: *default_args
+        kernel_version: 6.7.6

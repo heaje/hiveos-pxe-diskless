@@ -9,9 +9,11 @@ RUN apt update &&\
     apt clean
 
 # Install kernel packages
-ARG kernel_url=https://download.hiveos.farm/diskless/kernel/
-RUN mkdir -p /kernel &&\
-    wget -nH --no-parent -r --cut-dir=1 ${kernel_url}
+# ARG kernel_url=https://download.hiveos.farm/diskless/kernel/
+ARG kernel_pkg_path
+COPY ${kernel_pkg_path}/*.deb /kernel/.
+# RUN mkdir -p /kernel &&\
+#     wget -nH --no-parent -r --cut-dir=1 ${kernel_url}
 RUN dpkg -i /kernel/*.deb
 RUN ln -s /boot/vmlinuz-* /boot/vmlinuz
 
