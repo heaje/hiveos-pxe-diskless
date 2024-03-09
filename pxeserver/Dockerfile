@@ -57,6 +57,8 @@ ARG extra_packages
 RUN apt update && \
     apt -y install ${extra_packages} &&\
     apt clean
+COPY --chmod=750 scripts/* /tmp/.
+RUN for i in $(ls /tmp/*.sh); do ${i}; done;
 
 # Disable Systemd services (if necessary)
 ARG disable_services

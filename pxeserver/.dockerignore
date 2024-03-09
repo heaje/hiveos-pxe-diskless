@@ -4,3 +4,4 @@
 !container/
 !config*
 !kernel/**
+!scripts/**
