@@ -480,8 +480,8 @@ case $dist in
 	suite=bionic
 	repo=http://archive.ubuntu.com/ubuntu/
 	echo -e "${RED} Ubuntu 18.04 ($suite) image is deprecated.${NOCOLOR}"
-	show_help
-	exit 1
+	LOGFILE="build-${suite}.log"
+	shift
 	;;
     ubuntu20)
 	suite=focal
