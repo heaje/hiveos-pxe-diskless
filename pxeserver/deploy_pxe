@@ -295,6 +295,7 @@ function build_driver() { # @url or @file, @force_install
     # check compatibility
     local ver=`echo "$url" | grep -oP "${DRVREGEXP}"`
     
+    build_kernel
     # Build NVIDIA Driver
     echo2 "Building NVIDIA Driver version ${ver}..."
     ${docker_build_cmd} --build-arg "nvidia_url=${url}" --build-arg "nvidia_version=${ver}" hiveos-nvidia &>>$LOG_FILE
@@ -351,90 +352,6 @@ build_opencl() {
 remove_opencl() {
     echo "Not implemented yet."
 }
-
-case $dist in
-    ubuntu18)
-	suite=bionic
-	repo=http://archive.ubuntu.com/ubuntu/
-	echo -e "${RED} Ubuntu 18.04 ($suite) image is deprecated.${NOCOLOR}"
-	LOGFILE="build-${suite}.log"
-	shift
-	;;
-    ubuntu20)
-	suite=focal
-	#repo=http://archive.ubuntu.com/ubuntu/
-	repo="mirror://mirrors.ubuntu.com/mirrors.txt"
-	LOG_FILE="build-${suite}.log"
-	shift
-	;;
-    ubuntu22)
-	suite=jammy
-	repo="mirror://mirrors.ubuntu.com/mirrors.txt"
-	LOG_FILE="build-${suite}.log"
-	shift
-	;;
-    debian12)
-	suite=bookworm
-	repo=http://deb.debian.org/debian/
-	LOG_FILE="build-${suite}.log"
-	shift
-	;;
-    nvidia)
-	DOWNLOAD_URL=http://download.hiveos.farm
-	DRVURL=$DOWNLOAD_URL/drivers/
-	DRVPATH=build/nvidia/
-	TIMEOUT=10
-	RETRY=3
-	MINFREEMB=700
-	#mkdir -p build/$dist
-	DRVPATTERN="NVIDIA-Linux-x86_64-"
-	DRVREGEXP="${DRVPATTERN}\K[0-9\.]+(?=\.run)"
-	DRVNVIDIAURL="https://download.nvidia.com/XFree86/Linux-x86_64/"
-	LOG_FILE="nvidia.log"
-	shift
-	case $1 in
-	--list)
-		list_packages
-		exit 0
-		;;
-	--build)
-		shift
-		build_driver "$1"
-		exit $?
-		;;
-	*)
-		show_help
-		exit 1
-		;;
-	esac
-	;;
-    opencl)
-	shift
-	case $1 in
-	    --list)
-		list_opencl
-		exit $?
-		;;
-	    --build)
-		shift
-		build_opencl $1
-		exit $?
-		;;
-	    --remove)
-		shift
-		remove_opencl $1
-		exit $?
-		;;
-	    *)
-		show_help
-		;;
-	esac
-	;;
-    *)
-	show_help
-	exit 1
-	;;
-esac
 
 build_fs(){
     echo2 "Building Filesystem container..."
@@ -497,6 +414,92 @@ deploy_fs() {
 
 echo ""
 echo ""
+
+case $dist in
+    ubuntu18)
+        suite=bionic
+        repo=http://archive.ubuntu.com/ubuntu/
+        echo -e "${RED} Ubuntu 18.04 ($suite) image is deprecated.${NOCOLOR}"
+        LOGFILE="build-${suite}.log"
+        docker_build_cmd="${docker_build_cmd} --build-arg ubuntu_version=18.04"
+        shift
+        ;;
+    ubuntu20)
+        suite=focal
+        #repo=http://archive.ubuntu.com/ubuntu/
+        repo="mirror://mirrors.ubuntu.com/mirrors.txt"
+        LOG_FILE="build-${suite}.log"
+	docker_build_cmd="${docker_build_cmd} --build-arg ubuntu_version=20.04"
+        shift
+        ;;
+    ubuntu22)
+        suite=jammy
+        repo="mirror://mirrors.ubuntu.com/mirrors.txt"
+        LOG_FILE="build-${suite}.log"
+        shift
+        ;;
+    debian12)
+        suite=bookworm
+        repo=http://deb.debian.org/debian/
+        LOG_FILE="build-${suite}.log"
+        shift
+        ;;
+    nvidia)
+        DOWNLOAD_URL=http://download.hiveos.farm
+        DRVURL=$DOWNLOAD_URL/drivers/
+        DRVPATH=build/nvidia/
+        TIMEOUT=10
+        RETRY=3
+        MINFREEMB=700
+        #mkdir -p build/$dist
+        DRVPATTERN="NVIDIA-Linux-x86_64-"
+        DRVREGEXP="${DRVPATTERN}\K[0-9\.]+(?=\.run)"
+        DRVNVIDIAURL="https://download.nvidia.com/XFree86/Linux-x86_64/"
+        LOG_FILE="nvidia.log"
+        shift
+        case $1 in
+            --list)
+                    list_packages
+                    exit 0
+                    ;;
+            --build)
+                    shift
+                    build_driver "$1"
+                    exit $?
+                    ;;
+            *)
+                    show_help
+                    exit 1
+                    ;;
+        esac
+        ;;
+    opencl)
+        shift
+        case $1 in
+            --list)
+                list_opencl
+                exit $?
+                ;;
+            --build)
+                shift
+                build_opencl $1
+                exit $?
+                ;;
+            --remove)
+                shift
+                remove_opencl $1
+                exit $?
+                ;;
+            *)
+                show_help
+                ;;
+        esac
+        ;;
+    *)
+        show_help
+        exit 1
+        ;;
+esac
 
 
 case $1 in
