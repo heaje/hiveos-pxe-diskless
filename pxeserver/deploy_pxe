@@ -25,16 +25,12 @@ mydir=$(pwd)
 ### Some code for nvidia manipulation (check|list|download) based on nvidia-driver-update ^)
 
 dist=$1
-command=$2
 docker_build_cmd="docker compose --progress=plain build"
 
 LOG_FILE=$(basename $0).log
 DIR=$(pwd)/build/$dist/_fs
-DIST_DIR=$(pwd)/build/
 
 kern_ver=$(dpkg -I kernel/linux-image-*.deb | grep Package: | sed -r 's/.*linux-image-//')
-hiverepo=http://download.hiveos.farm/repo/binary
-include="sudo,curl,wget,systemd,initramfs-tools,net-tools,pv,tar,xz-utils"
 
 [[ -e server.conf ]] && source server.conf
 
@@ -411,30 +407,15 @@ echo ""
 case $dist in
     ubuntu18)
         suite=bionic
-        repo=http://archive.ubuntu.com/ubuntu/
         echo -e "${RED} Ubuntu 18.04 ($suite) image is deprecated.${NOCOLOR}"
-        LOGFILE="build-${suite}.log"
+        LOG_FILE="build-${suite}.log"
         docker_build_cmd="${docker_build_cmd} --build-arg ubuntu_version=18.04"
         shift
         ;;
     ubuntu20)
         suite=focal
-        #repo=http://archive.ubuntu.com/ubuntu/
-        repo="mirror://mirrors.ubuntu.com/mirrors.txt"
         LOG_FILE="build-${suite}.log"
         docker_build_cmd="${docker_build_cmd} --build-arg ubuntu_version=20.04"
-        shift
-        ;;
-    ubuntu22)
-        suite=jammy
-        repo="mirror://mirrors.ubuntu.com/mirrors.txt"
-        LOG_FILE="build-${suite}.log"
-        shift
-        ;;
-    debian12)
-        suite=bookworm
-        repo=http://deb.debian.org/debian/
-        LOG_FILE="build-${suite}.log"
         shift
         ;;
     nvidia)
@@ -443,7 +424,6 @@ case $dist in
         DRVPATH=build/nvidia/
         TIMEOUT=10
         RETRY=3
-        MINFREEMB=700
         #mkdir -p build/$dist
         DRVPATTERN="NVIDIA-Linux-x86_64-"
         DRVREGEXP="${DRVPATTERN}\K[0-9\.]+(?=\.run)"
