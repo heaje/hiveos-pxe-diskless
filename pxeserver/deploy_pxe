@@ -107,15 +107,15 @@ function list_packages() {
             [[ $incompat -ge $level ]] && continue
             get_cuda_version "$drv"
             if [[ "$cuda" != "$cuda_version" ]]; then
-                [[ ! -z $cuda ]] && echo ""
+                [[ -n $cuda ]] && echo ""
                 cuda="$cuda_version"
                 echo -e "${PURPLE}CUDA $cuda${NOCOLOR}"
                 last=
             fi
             this="${drv%%.*}"
-            if [[ "$this" > "500" ]]; then
+            if [[ "$this" -gt 500 ]]; then
                 if [[ "$last" != "$this" || -z "$last" ]]; then
-                    [[ ! -z "$last" ]] && echo -e ""
+                    [[ -n "$last" ]] && echo -e ""
                     last="$this"
                     echo -ne "  ${WHITE}$this${NOCOLOR}"
                 fi
@@ -169,7 +169,7 @@ function get_url() { # @version or @url, returns $url and $url_tesla
                 [[ "$drv" == "$1" || "${drv%.*}" == "$1" ]] && last="$drv" && break
             done
         fi
-        if [[ ! -z "$last" ]]; then
+        if [[ -n "$last" ]]; then
             url="${DRVURL}${DRVPATTERN}${last}.run"
         else
             echo -e "${YELLOW}> ${WHITE}$1${YELLOW} was not found in the list. Trying to get it from NVIDIA${NOCOLOR}"
@@ -183,7 +183,7 @@ function get_url() { # @version or @url, returns $url and $url_tesla
         local last=
         for drv in "${versions[@]}"; do
             [[ "${drv%%.*}" == "$1" ]] && last="$drv" && continue
-            [[ ! -z "$last" ]] && break
+            [[ -n "$last" ]] && break
         done
         [[ -z "$last" ]] && echo -e "${RED}> Unable to find latest driver version for $1 series${NOCOLOR}" && return 1
         echo2 "Latest driver for $1 series - ${WHITE}$last${NOCOLOR}" && echo ""
@@ -331,7 +331,7 @@ build_opencl() {
     local cont_temp_id=$(docker create --rm hiveos-opencl)
     docker cp ${cont_temp_id}:/opencl/amd-opencl-${ver}.tar.xz build/opencl/amd-opencl-$ver.tar.xz &>>$LOG_FILE
     [[ $? -ne 0 ]] && echo_fail || echo_ok
-    docker rm -f ${cont_temp_id} 1>/dev/null &>>$LOG_FILE
+    docker rm -f ${cont_temp_id} &>> $LOG_FILE
 
     echo2 "Create symlink..."
     ln -sf build/opencl/amd-opencl-${ver}.tar.xz hiveramfs/
@@ -395,7 +395,7 @@ deploy_fs() {
     local cont_temp_id=$(docker create --rm hiveos)
     docker export "${cont_temp_id}" | pixz -9 -e >$filepath
     [[ $? -ne 0 ]] && echo_fail || echo_ok
-    docker rm -f ${cont_temp_id} 1>/dev/null &>>$LOG_FILE
+    docker rm -f ${cont_temp_id} &>> $LOG_FILE
     echo2 "Create symlink ..."
     rm -f hiveramfs/$dist.tar.xz && ln -s ../$filepath hiveramfs/$dist.tar.xz
     [[ $? -ne 0 ]] && echo_fail || echo_ok
