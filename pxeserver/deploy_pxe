@@ -22,9 +22,7 @@ SCRIPT_PATH=$(dirname $0)
 cd $SCRIPT_PATH
 mydir=$(pwd)
 
-
 ### Some code for nvidia manipulation (check|list|download) based on nvidia-driver-update ^)
-
 
 dist=$1
 command=$2
@@ -34,29 +32,29 @@ LOG_FILE=$(basename $0).log
 DIR=$(pwd)/build/$dist/_fs
 DIST_DIR=$(pwd)/build/
 
-kern_ver=$(dpkg -I kernel/linux-image-*.deb | grep Package: |sed -r 's/.*linux-image-//')
+kern_ver=$(dpkg -I kernel/linux-image-*.deb | grep Package: | sed -r 's/.*linux-image-//')
 hiverepo=http://download.hiveos.farm/repo/binary
 include="sudo,curl,wget,systemd,initramfs-tools,net-tools,pv,tar,xz-utils"
 
 [[ -e server.conf ]] && source server.conf
 
 function echo2() {
-	name=$(basename $0)
-	pad=$(echo -n "$1" | sed -e :a -e 's/^.\{1,45\}$/&./;ta')
-	echo -ne ${BCYAN}[$(date +'%d/%m/%Y %H:%M:%S')][${name^^}]${NOCOLOR} ${YELLOW}$pad${NOCOLOR}
+    name=$(basename $0)
+    pad=$(echo -n "$1" | sed -e :a -e 's/^.\{1,45\}$/&./;ta')
+    echo -ne ${BCYAN}[$(date +'%d/%m/%Y %H:%M:%S')][${name^^}]${NOCOLOR} ${YELLOW}$pad${NOCOLOR}
 }
 
 function echo_ok() {
-	echo -e "${GREEN}[OK]${NOCOLOR}"
+    echo -e "${GREEN}[OK]${NOCOLOR}"
 }
 
 function echo_fail() {
-	echo -e "${RED}[FAIL]${NOCOLOR}"
-	exit 1
+    echo -e "${RED}[FAIL]${NOCOLOR}"
+    exit 1
 }
 
 function show_help() {
-        echo "Usage:
+    echo "Usage:
   deploy_pxe ubuntu20 --build           create latest Ubuntu 20.04 image
   deploy_pxe ubuntu20 --selfupgrade     just upgrade Hive package and repack rootfs image
   deploy_pxe ubuntu20 --upgrade         upgrade all and repack rootfs image
@@ -74,14 +72,13 @@ AMD OpenCL:
 "
 }
 
-
 ##NVIDIA PART
 CUDA_VER=(
-        12.2 535.54.03
-        12.0 525.60.13
-        11.8 520.56.06
-        11.7 515.43.04
-        11.6 510.39.01
+    12.2 535.54.03
+    12.0 525.60.13
+    11.8 520.56.06
+    11.7 515.43.04
+    11.6 510.39.01
 )
 
 function get_cuda_version() { # @driver_version, returns cuda_version
@@ -89,14 +86,14 @@ function get_cuda_version() { # @driver_version, returns cuda_version
     readarray -t ver_arr < <(echo -e "${ver//./$'\n'}\n0\n0")
     cuda_version=
 
-    for (( i=1; i < ${#CUDA_VER[@]} ; i+=2 )); do
+    for ((i = 1; i < ${#CUDA_VER[@]}; i += 2)); do
         readarray -t ref_arr < <(echo -e "${CUDA_VER[$i]//./$'\n'}\n0\n0")
-            if [[ ${ver_arr[0]} -gt ${ref_arr[0]} ||
-                ( ${ver_arr[0]} -eq ${ref_arr[0]} && ${ver_arr[1]#0} -gt ${ref_arr[1]#0} ) ||
-                ( ${ver_arr[0]} -eq ${ref_arr[0]} && ${ver_arr[1]#0} -eq ${ref_arr[1]#0} && ${ver_arr[2]#0} -ge ${ref_arr[2]#0} ) ]]; then
-                cuda_version=${CUDA_VER[$((i-1))]}
-                return 0
-            fi
+        if [[ ${ver_arr[0]} -gt ${ref_arr[0]} ||
+            (${ver_arr[0]} -eq ${ref_arr[0]} && ${ver_arr[1]#0} -gt ${ref_arr[1]#0}) ||
+            (${ver_arr[0]} -eq ${ref_arr[0]} && ${ver_arr[1]#0} -eq ${ref_arr[1]#0} && ${ver_arr[2]#0} -ge ${ref_arr[2]#0}) ]]; then
+            cuda_version=${CUDA_VER[$((i - 1))]}
+            return 0
+        fi
     done
 
     return 1
@@ -109,23 +106,22 @@ function list_packages() {
         local cuda=
         local incompat=
         [[ $force -ne 1 ]] && level=1 || level=2
-        for drv in "${versions[@]}"
-            do
-                incompat=0
-                [[ $incompat -ge $level ]] && continue
-                get_cuda_version "$drv"
-                if [[ "$cuda" != "$cuda_version" ]]; then
-                    [[ ! -z $cuda ]] && echo ""
-                        cuda="$cuda_version"
-                        echo -e "${PURPLE}CUDA $cuda${NOCOLOR}"
-                        last=
-                fi
-                    this="${drv%%.*}"
-	    if [[ "$this" > "500" ]]; then
+        for drv in "${versions[@]}"; do
+            incompat=0
+            [[ $incompat -ge $level ]] && continue
+            get_cuda_version "$drv"
+            if [[ "$cuda" != "$cuda_version" ]]; then
+                [[ ! -z $cuda ]] && echo ""
+                cuda="$cuda_version"
+                echo -e "${PURPLE}CUDA $cuda${NOCOLOR}"
+                last=
+            fi
+            this="${drv%%.*}"
+            if [[ "$this" > "500" ]]; then
                 if [[ "$last" != "$this" || -z "$last" ]]; then
                     [[ ! -z "$last" ]] && echo -e ""
-        	        last="$this"
-            	        echo -ne "  ${WHITE}$this${NOCOLOR}"
+                    last="$this"
+                    echo -ne "  ${WHITE}$this${NOCOLOR}"
                 fi
 
                 if [[ "$current_version" == "$drv" ]]; then
@@ -137,10 +133,10 @@ function list_packages() {
                 else
                     echo -ne "      $drv"
                 fi
-	    fi
-                done
-                echo ""
-        fi
+            fi
+        done
+        echo ""
+    fi
 
     get_stable
 }
@@ -173,9 +169,8 @@ function get_url() { # @version or @url, returns $url and $url_tesla
         local last=
         get_versions
         if [[ $? -eq 0 ]]; then
-            for drv in "${versions[@]}"
-                do
-                    [[ "$drv" == "$1" || "${drv%.*}" == "$1" ]] && last="$drv" && break
+            for drv in "${versions[@]}"; do
+                [[ "$drv" == "$1" || "${drv%.*}" == "$1" ]] && last="$drv" && break
             done
         fi
         if [[ ! -z "$last" ]]; then
@@ -184,16 +179,15 @@ function get_url() { # @version or @url, returns $url and $url_tesla
             echo -e "${YELLOW}> ${WHITE}$1${YELLOW} was not found in the list. Trying to get it from NVIDIA${NOCOLOR}"
             url="${DRVNVIDIAURL}$1/${DRVPATTERN}$1.run"
             [[ "$1" =~ ^[0-9]{3}\.[0-9]{2,3}\.[0-9]{2}$ ]] &&
-            url_tesla="https://uk.download.nvidia.com/tesla/$1/${DRVPATTERN}$1.run"
+                url_tesla="https://uk.download.nvidia.com/tesla/$1/${DRVPATTERN}$1.run"
         fi
     # 123 format
     elif [[ "$1" =~ ^[0-9]{3}$ ]]; then
         get_versions || return $?
         local last=
-        for drv in "${versions[@]}"
-            do
-                [[ "${drv%%.*}" == "$1" ]] && last="$drv" && continue
-                [[ ! -z "$last" ]] && break
+        for drv in "${versions[@]}"; do
+            [[ "${drv%%.*}" == "$1" ]] && last="$drv" && continue
+            [[ ! -z "$last" ]] && break
         done
         [[ -z "$last" ]] && echo -e "${RED}> Unable to find latest driver version for $1 series${NOCOLOR}" && return 1
         echo2 "Latest driver for $1 series - ${WHITE}$last${NOCOLOR}" && echo ""
@@ -261,16 +255,15 @@ function get_versions() { # returns $versions
     local list=
     if [[ "$DRVURL" == "$DRVNVIDIAURL" ]]; then
         list=$(curl -sLk --connect-timeout $TIMEOUT --retry $RETRY $DRVNVIDIAURL) &&
-        readarray -t versions < <(echo "$list" | grep -oP "\>\K[0-9]+\.[0-9\.]+" | sort -u -V)
+            readarray -t versions < <(echo "$list" | grep -oP "\>\K[0-9]+\.[0-9\.]+" | sort -u -V)
     else
         list=$(curl -sLk --connect-timeout $TIMEOUT --retry $RETRY $DRVURL) &&
-        readarray -t versions < <(echo "$list" | grep -oP "$DRVREGEXP" | sort -u -V)
+            readarray -t versions < <(echo "$list" | grep -oP "$DRVREGEXP" | sort -u -V)
     fi
     [[ ${#versions[@]} -eq 0 ]] && echo -e "${RED}Failed${NOCOLOR}" && return 1
     echo -e "${GREEN}${#versions[@]}${NOCOLOR}"
     return 0
 }
-
 
 function get_stable() { # returns $stable_version
     echo -en "${WHITE}> Stable version - ${NOCOLOR}"
@@ -294,7 +287,7 @@ function build_driver() { # @url or @file, @force_install
 
     # check compatibility
     local ver=$(echo "$url" | grep -oP "${DRVREGEXP}")
-    
+
     build_kernel
     # Build NVIDIA Driver
     echo2 "Building NVIDIA Driver version ${ver}..."
@@ -306,7 +299,7 @@ function build_driver() { # @url or @file, @force_install
     local cont_temp_id=$(docker create --rm hiveos-nvidia)
     docker cp -L ${cont_temp_id}:/nvidia/nvidia-${ver}.tar.xz build/nvidia/ &>>$LOG_FILE
     [[ $? -ne 0 ]] && echo_fail || echo_ok
-    docker rm -f ${cont_temp_id} 1> /dev/null
+    docker rm -f ${cont_temp_id} 1>/dev/null
 }
 
 create_initrd() {
@@ -320,7 +313,7 @@ create_initrd() {
     echo2 "Create symlink..."
     mkdir -p build/$dist/boot
     cp -r ${DIR}/boot/initrd-ram.img build/$dist/boot/initrd-ram.img
-    cp -r ${DIR}/boot/vmlinuz-${kern_ver}  build/$dist/boot/vmlinuz
+    cp -r ${DIR}/boot/vmlinuz-${kern_ver} build/$dist/boot/vmlinuz
     [[ ! -d $mydir/hiveramfs/boot ]] && mkdir -p $mydir/hiveramfs/boot
     rm -rf $mydir/hiveramfs/boot/$dist && ln -sf $mydir/build/$dist/boot/vmlinuz $mydir/hiveramfs/boot/$dist
     rm -rf $mydir/hiveramfs/boot/$dist.img && ln -sf $mydir/build/$dist/boot/initrd-ram.img $mydir/hiveramfs/boot/$dist.img
@@ -342,18 +335,18 @@ build_opencl() {
     local cont_temp_id=$(docker create --rm hiveos-opencl)
     docker cp ${cont_temp_id}:/opencl/amd-opencl-${ver}.tar.xz build/opencl/amd-opencl-$ver.tar.xz &>>$LOG_FILE
     [[ $? -ne 0 ]] && echo_fail || echo_ok
-    docker rm -f ${cont_temp_id} 1> /dev/null &>>$LOG_FILE
+    docker rm -f ${cont_temp_id} 1>/dev/null &>>$LOG_FILE
 
-	echo2 "Create symlink..."
-	ln -sf build/opencl/amd-opencl-${ver}.tar.xz hiveramfs/
-	[[ $? -ne 0 ]] && echo_fail || echo_ok
+    echo2 "Create symlink..."
+    ln -sf build/opencl/amd-opencl-${ver}.tar.xz hiveramfs/
+    [[ $? -ne 0 ]] && echo_fail || echo_ok
 }
 
 remove_opencl() {
     echo "Not implemented yet."
 }
 
-build_fs(){
+build_fs() {
     echo2 "Building Filesystem container..."
     ${docker_build_cmd} hiveos &>>$LOG_FILE
     [[ $? -eq 0 ]] && echo_ok || echo_fail
@@ -363,7 +356,7 @@ build_fs(){
     rm -f "hiveramfs/boot/${dist}.img" && ln -sf "${mydir}/build/${dist}/boot/initrd-ram.img" "hiveramfs/boot/${dist}.img"
 }
 
-build_kernel(){
+build_kernel() {
     echo2 "Building Kernel container..."
     ${docker_build_cmd} --pull hiveos-kernel &>>$LOG_FILE
     [[ $? -eq 0 ]] && echo_ok || echo_fail
@@ -373,43 +366,43 @@ build_kernel(){
     local cont_temp_id=$(docker create --rm hiveos-kernel)
     docker cp -L ${cont_temp_id}:/boot/vmlinuz build/${dist}/boot/vmlinuz &>>$LOG_FILE
     docker cp ${cont_temp_id}:/boot/initrd-ram.img build/${dist}/boot/initrd-ram.img &>>$LOG_FILE
-    docker rm -f ${cont_temp_id} 1> /dev/null
+    docker rm -f ${cont_temp_id} 1>/dev/null
     [[ $? -eq 0 ]] && echo_ok || echo_fail
 }
 
-install_kernel(){
+install_kernel() {
     echo2 "Install linux kernel..."
     mkdir -p $DIR/kernel/
     mkdir -p build/_kernel/$kern_ver
     cp -r kernel/*.deb $DIR/kernel/
-    for file in $DIR/kernel/*; do 
-	chroot $DIR dpkg -i /kernel/$(basename $file) &>>$LOG_FILE
-	dpkg -x kernel/$(basename $file) build/_kernel/$kern_ver/ &>>$LOG_FILE
+    for file in $DIR/kernel/*; do
+        chroot $DIR dpkg -i /kernel/$(basename $file) &>>$LOG_FILE
+        dpkg -x kernel/$(basename $file) build/_kernel/$kern_ver/ &>>$LOG_FILE
     done
     echo_ok
 }
 
-extract_kernel(){
+extract_kernel() {
     echo2 "Extract linux kernel..."
     mkdir -p $DIR/kernel/
     mkdir -p build/_kernel/$kern_ver
-    for file in kernel/*; do 
-	dpkg -x kernel/$(basename $file) build/_kernel/$kern_ver/ &>>$LOG_FILE
+    for file in kernel/*; do
+        dpkg -x kernel/$(basename $file) build/_kernel/$kern_ver/ &>>$LOG_FILE
     done
     echo_ok
 }
 
 deploy_fs() {
-	local filepath=build/$dist/$dist.tar.xz
+    local filepath=build/$dist/$dist.tar.xz
 
-	echo2 "Saving to $filepath ..."
-	local cont_temp_id=$(docker create --rm hiveos)
-	docker export "${cont_temp_id}" | pixz -9 -e > $filepath
-	[[ $? -ne 0 ]] && echo_fail || echo_ok
-	docker rm -f ${cont_temp_id} 1> /dev/null &>>$LOG_FILE
-	echo2 "Create symlink ..."
-	rm -f hiveramfs/$dist.tar.xz && ln -s ../$filepath hiveramfs/$dist.tar.xz
-	[[ $? -ne 0 ]] && echo_fail || echo_ok
+    echo2 "Saving to $filepath ..."
+    local cont_temp_id=$(docker create --rm hiveos)
+    docker export "${cont_temp_id}" | pixz -9 -e >$filepath
+    [[ $? -ne 0 ]] && echo_fail || echo_ok
+    docker rm -f ${cont_temp_id} 1>/dev/null &>>$LOG_FILE
+    echo2 "Create symlink ..."
+    rm -f hiveramfs/$dist.tar.xz && ln -s ../$filepath hiveramfs/$dist.tar.xz
+    [[ $? -ne 0 ]] && echo_fail || echo_ok
 }
 
 echo ""
@@ -429,7 +422,7 @@ case $dist in
         #repo=http://archive.ubuntu.com/ubuntu/
         repo="mirror://mirrors.ubuntu.com/mirrors.txt"
         LOG_FILE="build-${suite}.log"
-	docker_build_cmd="${docker_build_cmd} --build-arg ubuntu_version=20.04"
+        docker_build_cmd="${docker_build_cmd} --build-arg ubuntu_version=20.04"
         shift
         ;;
     ubuntu22)
@@ -459,18 +452,18 @@ case $dist in
         shift
         case $1 in
             --list)
-                    list_packages
-                    exit 0
-                    ;;
+                list_packages
+                exit 0
+                ;;
             --build)
-                    shift
-                    build_driver "$1"
-                    exit $?
-                    ;;
+                shift
+                build_driver "$1"
+                exit $?
+                ;;
             *)
-                    show_help
-                    exit 1
-                    ;;
+                show_help
+                exit 1
+                ;;
         esac
         ;;
     opencl)
@@ -501,27 +494,25 @@ case $dist in
         ;;
 esac
 
-
 case $1 in
     --chroot)
-	docker run -it --rm hiveos /bin/bash
-	exit $?
-	;; 
+        docker run -it --rm hiveos /bin/bash
+        exit $?
+        ;;
     --build)
-    build_kernel
-	build_fs
-	deploy_fs
-	;;
+        build_kernel
+        build_fs
+        deploy_fs
+        ;;
     --build-kernel)
-    build_kernel
-    ;;
+        build_kernel
+        ;;
     --remove)
-	docker rmi hiveos hiveos-kernel
-	remove_fs
-	;;
+        docker rmi hiveos hiveos-kernel
+        remove_fs
+        ;;
     *)
-	show_help
-	exit 1
+        show_help
+        exit 1
+        ;;
 esac
-
-
