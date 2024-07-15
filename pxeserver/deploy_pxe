@@ -18,9 +18,9 @@ LGRAY='\033[0;37m'
 WHITE='\033[1;37m'
 NOCOLOR='\033[0m'
 
-SCRIPT_PATH=`dirname $0`
+SCRIPT_PATH=$(dirname $0)
 cd $SCRIPT_PATH
-mydir=`pwd`
+mydir=$(pwd)
 
 
 ### Some code for nvidia manipulation (check|list|download) based on nvidia-driver-update ^)
@@ -30,19 +30,19 @@ dist=$1
 command=$2
 docker_build_cmd="docker compose --progress=plain build"
 
-LOG_FILE=`basename $0`.log
-DIR=`pwd`/build/$dist/_fs
-DIST_DIR=`pwd`/build/
+LOG_FILE=$(basename $0).log
+DIR=$(pwd)/build/$dist/_fs
+DIST_DIR=$(pwd)/build/
 
-kern_ver=`dpkg -I kernel/linux-image-*.deb | grep Package: |sed -r 's/.*linux-image-//'`
+kern_ver=$(dpkg -I kernel/linux-image-*.deb | grep Package: |sed -r 's/.*linux-image-//')
 hiverepo=http://download.hiveos.farm/repo/binary
 include="sudo,curl,wget,systemd,initramfs-tools,net-tools,pv,tar,xz-utils"
 
 [[ -e server.conf ]] && source server.conf
 
 function echo2() {
-	name=`basename $0`
-	pad=`echo -n "$1" | sed -e :a -e 's/^.\{1,45\}$/&./;ta'`
+	name=$(basename $0)
+	pad=$(echo -n "$1" | sed -e :a -e 's/^.\{1,45\}$/&./;ta')
 	echo -ne ${BCYAN}[$(date +'%d/%m/%Y %H:%M:%S')][${name^^}]${NOCOLOR} ${YELLOW}$pad${NOCOLOR}
 }
 
@@ -146,13 +146,13 @@ function list_packages() {
 }
 
 function check_package() { # @filename
-    #local basename=`basename $1`
+    #local basename=$(basename $1)
     [[ ! -f "${DRVPATH}$1" ]] && return 1
     #echo -e ""
     echo2 "Checking package integrity" && echo ""
     local exitcode=1
     # check size. zero file exits with 0
-    local size=`stat -c %s "${DRVPATH}$1"`
+    local size=$(stat -c %s "${DRVPATH}$1")
     if [[ $size -gt 1000 ]]; then
         chmod +x "${DRVPATH}$1"
         "${DRVPATH}$1" --check
@@ -210,7 +210,7 @@ function get_package() { # @url or @file, returns $package
     local exitcode=0
     local url="$1"
 
-    package=`basename "$url"`
+    package=$(basename "$url")
     [[ -z "$package" ]] && echo -e "${RED}> No file name in $url${NOCOLOR}" && return 1
 
     # check if file already exists and it is good
@@ -225,7 +225,7 @@ function get_package() { # @url or @file, returns $package
     # local file
     if [[ "$url" != ftp* && "$url" != http* ]]; then
         #[[ ! -f $url ]] &&  echo -e "${RED} Unable to get from $url" && return 1
-        realpath=`realpath "$url"`
+        realpath=$(realpath "$url")
         [[ "$realpath" == "${DRVPATH}$package" ]] && return 1
         cp "$url" "${DRVPATH}$package"
         [[ $? -ne 0 ]] && echo -e "${RED}> Unable to get file from - ${WHITE}$url${NOCOLOR}" && return 1
@@ -260,10 +260,10 @@ function get_versions() { # returns $versions
     echo2 "Loading drivers list${NOCOLOR}"
     local list=
     if [[ "$DRVURL" == "$DRVNVIDIAURL" ]]; then
-        list=`curl -sLk --connect-timeout $TIMEOUT --retry $RETRY $DRVNVIDIAURL` &&
+        list=$(curl -sLk --connect-timeout $TIMEOUT --retry $RETRY $DRVNVIDIAURL) &&
         readarray -t versions < <(echo "$list" | grep -oP "\>\K[0-9]+\.[0-9\.]+" | sort -u -V)
     else
-        list=`curl -sLk --connect-timeout $TIMEOUT --retry $RETRY $DRVURL` &&
+        list=$(curl -sLk --connect-timeout $TIMEOUT --retry $RETRY $DRVURL) &&
         readarray -t versions < <(echo "$list" | grep -oP "$DRVREGEXP" | sort -u -V)
     fi
     [[ ${#versions[@]} -eq 0 ]] && echo -e "${RED}Failed${NOCOLOR}" && return 1
@@ -275,12 +275,12 @@ function get_versions() { # returns $versions
 function get_stable() { # returns $stable_version
     echo -en "${WHITE}> Stable version - ${NOCOLOR}"
     if [[ "$DRVURL" == "$DRVNVIDIAURL" ]]; then
-        local list=`curl -sLk --connect-timeout $TIMEOUT --retry $RETRY ${DRVNVIDIAURL}latest.txt`
+        local list=$(curl -sLk --connect-timeout $TIMEOUT --retry $RETRY ${DRVNVIDIAURL}latest.txt)
     else
-        local list=`curl -sLk --connect-timeout $TIMEOUT --retry $RETRY ${DRVURL}VERSIONS.txt`
+        local list=$(curl -sLk --connect-timeout $TIMEOUT --retry $RETRY ${DRVURL}VERSIONS.txt)
     fi
     [[ -z "$list" ]] && echo -e "${RED}Failed${NOCOLOR}" && return 1
-    stable_version=`echo "$list" | grep -oP "$DRVREGEXP" | tail -n 1`
+    stable_version=$(echo "$list" | grep -oP "$DRVREGEXP" | tail -n 1)
     [[ -z "$stable_version" ]] && echo -e "${RED}Error${NOCOLOR}" && return 2
     get_cuda_version "$stable_version" &&
         echo -e "${WHITE}${stable_version} ${PURPLE}(CUDA $cuda_version)${NOCOLOR}" ||
@@ -293,7 +293,7 @@ function build_driver() { # @url or @file, @force_install
     get_url "$1" || return $?
 
     # check compatibility
-    local ver=`echo "$url" | grep -oP "${DRVREGEXP}"`
+    local ver=$(echo "$url" | grep -oP "${DRVREGEXP}")
     
     build_kernel
     # Build NVIDIA Driver
@@ -383,8 +383,8 @@ install_kernel(){
     mkdir -p build/_kernel/$kern_ver
     cp -r kernel/*.deb $DIR/kernel/
     for file in $DIR/kernel/*; do 
-	chroot $DIR dpkg -i /kernel/`basename $file` &>>$LOG_FILE
-	dpkg -x kernel/`basename $file` build/_kernel/$kern_ver/ &>>$LOG_FILE
+	chroot $DIR dpkg -i /kernel/$(basename $file) &>>$LOG_FILE
+	dpkg -x kernel/$(basename $file) build/_kernel/$kern_ver/ &>>$LOG_FILE
     done
     echo_ok
 }
@@ -394,7 +394,7 @@ extract_kernel(){
     mkdir -p $DIR/kernel/
     mkdir -p build/_kernel/$kern_ver
     for file in kernel/*; do 
-	dpkg -x kernel/`basename $file` build/_kernel/$kern_ver/ &>>$LOG_FILE
+	dpkg -x kernel/$(basename $file) build/_kernel/$kern_ver/ &>>$LOG_FILE
     done
     echo_ok
 }
